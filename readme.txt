@@ -7,7 +7,7 @@ It supports the following sources of data:
 3. Transamerica Retirement Services (balances only, by screen scraping).
    Set your username and password in private.py.
 4. Any .ofx files in the current working directory, for banks that support
-   neither OFX nor Mint.
+   neither OFX nor Mint. Such files require you to create a mandatory
 5. Any accounts you keep using Google Sheets (via Google Drive csv export).
    Requires the key for that spreadsheet, the gid of the worksheet, and the
    column numbers of columns that hold relevant information. Older 
@@ -22,5 +22,15 @@ It then exports two csv files:
 2. assets.csv, generated from the template template.csv. The name of each
    account can be placed in the template, and they are replaced exactly once
    with that account's current balance or value. (Some caveats here: for 
-   example, Mint account names are stripped of spaces.)
+   example, Mint account names are stripped of spaces.) dodown.py supports
+   joining multiple account names with a + (but therefore does not support
+   using a + in an account name). If multiple account names are joined with 
+   a +, but only some of those names are known, it will not replace any of 
+   the names, but will rather print a warning.
+
 It further prints any accounts that are not listed in the template.
+
+v0.1 (3/25/15): Initial release
+v0.2 (3/26/15): Support for + in template.csv. Added ACCTNUMMAP for downloaded
+		OFX files. Made everything except ofxclient conditional on the
+		configuration file parameters.

@@ -28,27 +28,30 @@ balance = {}
 datethresh = timestring.Date(str(DOWNLOAD_DAYS) + " days ago").date
 
 # Start the Mint fetch so that we can get to it later.
-mint = mintapi.Mint(MINT_USERNAME, MINT_PASSWORD)
-mint.initiate_account_refresh()
+if MINT_USERNAME:
+  mint = mintapi.Mint(MINT_USERNAME, MINT_PASSWORD)
+  mint.initiate_account_refresh()
 
 # Custom scrapers: Yahoo currencies, Kitco precious metals, TRS Retirement
 for curr in YAHOO_CURRENCIES:
   balance[curr] = float(Currency(curr).get_ask())
 
-r = requests.get("http://www.kitco.com/market/")
-kitcosep = ".*\n *<td>([^<]*)"
-for pm in KITCO_PMS:
-  matches = re.search(pm + (kitcosep*4), r.text)
-  balance[pm] = matches.group(3)
+if KITCO_PMS:
+  r = requests.get("http://www.kitco.com/market/")
+  kitcosep = ".*\n *<td>([^<]*)"
+  for pm in KITCO_PMS:
+    matches = re.search(pm + (kitcosep*4), r.text)
+    balance[pm] = matches.group(3)
 
-url = "https://ddol.divinvest.com/ddol/util/login.html?submitted=true"
-payload = {"username": TRS_USERNAME, "fpassword": "Password",
-           "password": TRS_PASSWORD,
-           "signOutURI": "https://my.trsretire.com/webportal/ah/index.html",
-           "submit": "Sign In"}
-r = requests.post(url, data=payload)
-matches = re.findall("(TT[\d ]+)\r\n.*\n.*\n.*\n[^\$]*\$([\d\.,]*)", r.text)
-balance['AHTRS'] = sum(map(lambda x: float(x[1].replace(',','')), matches))
+if TRS_USERNAME:
+  url = "https://ddol.divinvest.com/ddol/util/login.html?submitted=true"
+  payload = {"username": TRS_USERNAME, "fpassword": "Password",
+             "password": TRS_PASSWORD,
+             "signOutURI": "https://my.trsretire.com/webportal/ah/index.html",
+             "submit": "Sign In"}
+  r = requests.post(url, data=payload)
+  matches = re.findall("(TT[\d ]+)\r\n.*\n.*\n.*\n[^\$]*\$([\d\.,]*)", r.text)
+  balance['TRS'] = sum(map(lambda x: float(x[1].replace(',','')), matches))
 
 ### The transactions file that we're going to write everywhere
 transfile = open('trans.csv', 'w')
@@ -78,8 +81,8 @@ for acct in googleaccts:
       if row[datecol]:
         try:
           if timestring.Date(row[datecol]) >= datethresh:
-            transwrite.writerow([x, acct, '', '', '', '',
-                                 row[googleaccts[acct]["descrcol"]], 
+            transwrite.writerow([timestring.Date(row[datecol]), acct, '', '', 
+                                 '', '', row[googleaccts[acct]["descrcol"]], 
                                  row[googleaccts[acct]["amtcol"]], ''])
           tmp = row[googleaccts[acct]['col']]
         except timestring.TimestringInvalid:
@@ -118,36 +121,41 @@ ofxfiles = glob.glob("*.ofx")
 for fname in ofxfiles:
   ofx = ofxparse.OfxParser.parse(file(fname))
   for acct in ofx.accounts:
-    acctnum = "Unknown account number " + acct.number + str(acct)
+    acctnum = "Unknown account number " + acct.number + " " + str(acct)
     for cfgacct in accounts:
       if cfgacct.number == acct.number:
         acctnum = str(cfgacct.description)
+    if acct.number in ACCTNUMMAP: acctnum = ACCTNUMMAP[acct.number]
     if type(acct.statement) == ofxparse.ofxparse.InvestmentStatement:
       balance[acctnum] = sum(map(lambda x: x.units*x.unit_price,
                                  acct.statement.positions))
     else:
       balance[acctnum] = acct.statement.balance;
       for trans in acct.statement.transactions:
-        transwrite.writerow([trans.date, acctnum, trans.checknum, trans.memo, 
-                             trans.mcc, trans.sic, trans.payee, trans.amount, 
-                             trans.type])
+        if trans.date >= datethresh:
+          transwrite.writerow([trans.date, acctnum, trans.checknum, trans.memo,
+                               trans.mcc, trans.sic, trans.payee, trans.amount,
+                               trans.type])
 
 ### Mint. At the bottom to let the earlier fetch complete.
-minttrans = mint.get_transactions()
-mintaccts = mint.get_accounts()
-for acct in mintaccts:
-  inv = -1 if (acct["klass"] == 'credit') or (acct["klass"] == 'loan') else 1
-  balance[acct["name"].replace(' ', '')] = acct["currentBalance"] * inv
-  age = datetime.datetime.now()-acct["lastUpdatedInDate"]
-  if age.total_seconds() > 3600:
-    print "Warning: " + acct["name"] + " age is " + (str(age).split('.', 2)[0])
-for trans in minttrans.values:
-  date=str(trans[0].month) + "/" + str(trans[0].day) + "/" + str(trans[0].year)
-  inv = -1 if trans[4] == 'debit' else 1
-  transwrite.writerow([date, trans[6], '', trans[1], '', trans[5], trans[2],
-                       trans[3]*inv, trans[4]])
+if MINT_USERNAME:
+  minttrans = mint.get_transactions()
+  mintaccts = mint.get_accounts()
+  for acct in mintaccts:
+    inv = -1 if (acct["klass"] == 'credit') or (acct["klass"] == 'loan') else 1
+    balance[acct["name"].replace(' ', '')] = acct["currentBalance"] * inv
+    age = datetime.datetime.now()-acct["lastUpdatedInDate"]
+    if age.total_seconds() > 3600:
+      print "Warning: "+acct["name"]+" age is "+(str(age).split('.',2)[0])
+  for trans in minttrans.values:
+    if trans[0] >= datethresh:
+      date = (str(trans[0].month) + "/" + str(trans[0].day) + "/" +
+              str(trans[0].year))
+      inv = -1 if trans[4] == 'debit' else 1
+      transwrite.writerow([date, trans[6], '', trans[1], '', trans[5],
+                           trans[2], trans[3]*inv, trans[4]])
 
-# Write out the csv
+# Write out the assets csv
 templatefile = open(mypath + 'template.csv')
 templatecsvr = csv.reader(templatefile, delimiter=',', quotechar='"')
 assetfile = open('assets.csv', 'w')
@@ -155,10 +163,18 @@ assetcsvw = csv.writer(assetfile, delimiter=',', quotechar='"',
                        quoting=csv.QUOTE_MINIMAL)
 for row in templatecsvr:
   for i in range(len(row)):
-    if row[i] in balance:
-      tmp = balance[row[i]]
-      del balance[row[i]]
-      row[i] = tmp
+    rowaccts = row[i].split('+')
+    count = 0
+    for j in range(len(rowaccts)):
+      if rowaccts[j] in balance:
+        tmp = balance[rowaccts[j]]
+        del balance[rowaccts[j]]
+        rowaccts[j] = tmp
+        count = count+1
+    if count == len(rowaccts):
+      row[i] = sum(map(lambda x: float(x), rowaccts))
+    elif count != 0:
+      print "Warning: partial match. " + row[i] + " -> " + str(rowaccts)
   assetcsvw.writerow(row)
 
 for key in balance:

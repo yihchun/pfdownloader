@@ -10,6 +10,8 @@ TRS_PASSWORD =
 YAHOO_CURRENCIES = [] # e.g., EURUSD
 KITCO_PMS        = [] # e.g., PLATINUM
 
+ACCTNUMMAP = { "num": "name" }
+
 # Google sheets accounts. Get the key from the thing following
 # key= or /d/(blah) and the gid from the editing URL.
 # Isinv should be true if this is a sheet describing what you owe, and false
