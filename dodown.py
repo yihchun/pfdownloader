@@ -83,7 +83,7 @@ for acct in googleaccts:
           if timestring.Date(row[datecol]) >= datethresh:
             transwrite.writerow([timestring.Date(row[datecol]), acct, '', '', 
                                  '', '', row[googleaccts[acct]["descrcol"]], 
-                                 row[googleaccts[acct]["amtcol"]], ''])
+                                 float(row[googleaccts[acct]["amtcol"]])*inv])
           tmp = row[googleaccts[acct]['col']]
         except timestring.TimestringInvalid:
           if row[datecol] != "Date":
