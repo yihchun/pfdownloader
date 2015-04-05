@@ -54,6 +54,21 @@ It then exports two csv files:
 
 It further prints any accounts that are not listed in the template.
 
+--------------------------------------------------------------------------------
+
+Getting the cookie for a spreadsheet fetcher (on Mac OS X Yosemite).
+1. Launch Firefox
+2. Open a new private window
+3. Tools->Web Developer->Network
+4. Log in to Google and load the spreadsheet you want to view
+5. Select the download of the .csv
+6. Click headers in the right pane
+7. Click "Raw Headers"
+8. Under "Request Headers" copy everything between "Cookie: " and "Connection"
+   and paste it in private.py under GOOGLE_COOKIE
+
+--------------------------------------------------------------------------------
+
 v0.1 (3/25/15): Initial release
 v0.2 (3/26/15): Support for + in template.csv. Added ACCTNUMMAP for downloaded
 		OFX files. Made everything except ofxclient conditional on the

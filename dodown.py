@@ -67,9 +67,9 @@ googlebase = "https://docs.google.com/feeds/download/spreadsheets/Export?key="
 headers = {'Cookie': GOOGLE_COOKIE}
 
 for acct in googleaccts:
-  r = requests.get(googlebase + googleaccts[acct]["key"] +
-                   "&exportFormat=csv&gid=" + googleaccts[acct]["gid"],
-                   headers=headers)
+  url = (googlebase + googleaccts[acct]["key"] +
+         "&exportFormat=csv&gid=" + googleaccts[acct]["gid"])
+  r = requests.get(url, headers=headers)
   datecol = googleaccts[acct]["datecol"]
   inv = -1 if googleaccts[acct]['isinv'] else 1
   match = re.match("^text/csv", r.headers['content-type'])
@@ -81,9 +81,10 @@ for acct in googleaccts:
       if row[datecol]:
         try:
           if timestring.Date(row[datecol]) >= datethresh:
+            amt = float(row[googleaccts[acct]["amtcol"]].replace('$',''))*inv
             transwrite.writerow([timestring.Date(row[datecol]), acct, '', '', 
                                  '', '', row[googleaccts[acct]["descrcol"]], 
-                                 float(row[googleaccts[acct]["amtcol"]])*inv])
+                                 amt])
           tmp = row[googleaccts[acct]['col']]
         except timestring.TimestringInvalid:
           if row[datecol] != "Date":
@@ -91,6 +92,7 @@ for acct in googleaccts:
     balance[acct] = float(tmp.replace('$', '').replace(',', '')) * inv
   else:
     print 'Failed: got wrong content-type ' + r.headers['content-type']
+    print 'URL: ' + url
     sys.exit(1)
 
 ### Use the age of the download.ofx file to decide whether or not we want
